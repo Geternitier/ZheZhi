@@ -3,5 +3,6 @@
   "width": ["13", "inputs", "width"],
   "height": ["13", "inputs", "height"],
   "seed": ["7", "inputs", "seed"],
+  "resolution": ["10", "inputs", "resolution"],
   "image": ["12", "inputs", "image"]
 }

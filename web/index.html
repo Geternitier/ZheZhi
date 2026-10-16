@@ -31,7 +31,11 @@
           <button type="button" id="copy" class="text-btn" disabled>复制提示词</button>
         </div>
         <textarea id="text" rows="5" maxlength="8000" placeholder="写下要画的内容。"></textarea>
-        <div id="ratio-field">
+        <div id="scale-field" class="choice-row">
+          <div class="field-label" id="scale-label">清晰度</div>
+          <div class="scales" id="scales" role="radiogroup" aria-labelledby="scale-label"></div>
+        </div>
+        <div id="ratio-field" class="choice-row">
           <div class="field-label" id="ratio-label">比例</div>
           <div class="ratios" id="ratios" role="radiogroup" aria-labelledby="ratio-label"></div>
         </div>
@@ -58,6 +62,18 @@
       </section>
     </div>
   </main>
+  <dialog id="viewer" aria-label="大图">
+    <div class="viewer-bar">
+      <button type="button" id="viewer-out" disabled>缩小</button>
+      <button type="button" id="viewer-in">放大</button>
+      <button type="button" id="viewer-close">关闭</button>
+    </div>
+    <div id="viewer-stage">
+      <div id="viewer-frame">
+        <img id="viewer-image" alt="生成结果">
+      </div>
+    </div>
+  </dialog>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

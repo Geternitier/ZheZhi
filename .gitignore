@@ -4,3 +4,5 @@ dist/
 *.log
 启动.bat
 data/
+问题和迭代.md
+docs/

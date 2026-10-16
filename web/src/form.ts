@@ -1,13 +1,19 @@
-import { RATIOS, type RatioId } from "@huijing/shared";
+import { RATIOS, SCALES, type RatioId, type ScaleId } from "@huijing/shared";
 import type { Mode } from "./result.js";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const RATIO_ORDER: RatioId[] = ["2:3", "1:1", "3:2", "16:9", "9:16"];
+const SCALE_LABEL: Record<ScaleId, string> = {
+  "1k": "标清",
+  "1.5k": "高清",
+  "2k": "超清",
+};
 
 export type FormInput = {
   mode: Mode;
   text: string;
   ratio: RatioId;
+  scale: ScaleId;
   file: File | null;
 };
 
@@ -30,9 +36,11 @@ export function createForm(options: {
   const generate = required<HTMLButtonElement>(options.form, "#generate");
   const error = required<HTMLParagraphElement>(options.form, "#form-error");
   const ratios = required<HTMLElement>(options.form, "#ratios");
+  const scales = required<HTMLElement>(options.form, "#scales");
   const copy = required<HTMLButtonElement>(options.form, "#copy");
   let mode: Mode = "text";
   let ratio: RatioId = "2:3";
+  let scale: ScaleId = "1k";
   let image: File | null = null;
   let preview: string | null = null;
   let running = false;
@@ -60,6 +68,22 @@ export function createForm(options: {
       options.onChange();
     });
     ratios.append(button);
+  }
+
+  for (const value of SCALES) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "scale";
+    button.textContent = SCALE_LABEL[value];
+    button.setAttribute("aria-checked", String(value === scale));
+    button.addEventListener("click", () => {
+      scale = value;
+      for (const item of scales.querySelectorAll<HTMLButtonElement>(".scale")) {
+        item.setAttribute("aria-checked", String(item === button));
+      }
+      options.onChange();
+    });
+    scales.append(button);
   }
 
   text.addEventListener("input", () => {
@@ -96,8 +120,14 @@ export function createForm(options: {
     event.preventDefault();
     drop.classList.remove("over");
     const next = event.dataTransfer?.files?.[0];
-    if (!next || !takeFile(next)) return;
-    options.onChange();
+    if (next) {
+      if (!takeFile(next)) return;
+      options.onChange();
+      return;
+    }
+    const url = droppedResultUrl(event.dataTransfer);
+    if (!url) return;
+    void takeUrl(url);
   });
 
   for (const button of options.modes.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
@@ -130,6 +160,24 @@ export function createForm(options: {
     showError("");
     setFile(next);
     return true;
+  }
+
+  async function takeUrl(url: string) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        showError("参考图无法读取。");
+        return;
+      }
+      const header = (response.headers.get("content-type") || "").split(";")[0].trim();
+      const blob = await response.blob();
+      const media = IMAGE_TYPES.has(header) ? header : blob.type;
+      const file = new File([blob], nameFor(media), { type: media });
+      if (!takeFile(file)) return;
+      options.onChange();
+    } catch {
+      showError("参考图无法读取。");
+    }
   }
 
   function setFile(next: File | null) {
@@ -173,9 +221,19 @@ export function createForm(options: {
 
   return {
     value(): FormInput {
-      return { mode, text: text.value.trim(), ratio, file: image };
+      return { mode, text: text.value.trim(), ratio, scale, file: image };
+    },
+    text(): string {
+      return text.value;
     },
     setMode,
+    setScale(next: ScaleId) {
+      scale = next;
+      const buttons = [...scales.querySelectorAll<HTMLButtonElement>(".scale")];
+      buttons.forEach((button, index) => {
+        button.setAttribute("aria-checked", String(SCALES[index] === next));
+      });
+    },
     setRunning(next: boolean) {
       running = next;
       sync();
@@ -196,6 +254,34 @@ export function createForm(options: {
     },
     sync,
   };
+}
+
+function droppedResultUrl(data: DataTransfer | null): string | null {
+  if (!data) return null;
+  const raw = data.getData("application/x-huijing-image") || data.getData("text/uri-list");
+  for (const line of raw.split(/\s+/)) {
+    const url = resultImageUrl(line);
+    if (url) return url;
+  }
+  return null;
+}
+
+function resultImageUrl(value: string): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value, window.location.href);
+    if (url.origin !== window.location.origin) return null;
+    if (!/^\/api\/runs\/[^/]+\/image$/.test(url.pathname)) return null;
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function nameFor(media: string): string {
+  if (media === "image/jpeg") return "reference.jpg";
+  if (media === "image/webp") return "reference.webp";
+  return "reference.png";
 }
 
 function required<T extends Element>(root: ParentNode, selector: string): T {

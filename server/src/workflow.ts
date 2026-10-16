@@ -18,6 +18,7 @@ export type WorkflowValues = {
   height: number;
   seed: number;
   image?: string;
+  resolution?: number;
 };
 
 export type LoadedWorkflow = {
@@ -68,6 +69,10 @@ export function fillWorkflow(
   if (values.image !== undefined) {
     const steps = readPath(manifest.image, "参考图");
     writePath(graph, steps, values.image, "参考图");
+  }
+  if (values.resolution !== undefined) {
+    const steps = readPath(manifest.resolution, "分辨率");
+    writePath(graph, steps, values.resolution, "分辨率");
   }
   return graph;
 }

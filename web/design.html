@@ -121,16 +121,24 @@
       border: 1.5px dashed var(--pencil);
       border-radius: 2px 10px;
     }
-    .ratios { display: flex; flex-wrap: wrap; gap: 8px; }
+    .choice-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+    .choice-row label { margin: 0; }
+    .ratios { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
     .ratios span {
       border: 1px solid transparent;
       padding: 0 6px;
       color: var(--pencil);
     }
-    .ratios .on {
+    .ratios .on, .scales .on {
       color: var(--ink);
       border-color: var(--ink);
       border-radius: 999px;
+    }
+    .scales { display: flex; flex-wrap: wrap; gap: 8px; }
+    .scales span {
+      border: 1px solid transparent;
+      padding: 0 6px;
+      color: var(--pencil);
     }
     .go {
       margin-top: 16px;
@@ -192,7 +200,13 @@
             </div>
             <label for="prompt">文本</label>
             <div class="box" id="prompt">夜雨里，她把油纸伞往旁边让出半肩。</div>
-            <div id="ratio-field">
+            <div id="scale-field" class="choice-row">
+              <label>清晰度</label>
+              <div class="scales">
+                <span class="on">标清</span><span>高清</span><span>超清</span>
+              </div>
+            </div>
+            <div id="ratio-field" class="choice-row">
               <label>比例</label>
               <div class="ratios">
                 <span class="on">2:3</span><span>1:1</span><span>3:2</span><span>16:9</span><span>9:16</span>
@@ -217,13 +231,13 @@
           <tr>
             <td>文生图</td>
             <td><code>text.image</code></td>
-            <td>文本、比例</td>
+            <td>文本、比例、清晰度</td>
             <td>写下要画的内容，然后生成。</td>
           </tr>
           <tr>
             <td>图生图</td>
             <td><code>image.image</code></td>
-            <td>一张参考图、文本</td>
+            <td>一张参考图、文本、清晰度</td>
             <td>放入一张参考图，并写下要怎么画。</td>
           </tr>
         </tbody>
@@ -231,7 +245,9 @@
       <ul>
         <li>文生图显示比例，默认 <code>2:3</code>。选项为 <code>1:1</code>、<code>2:3</code>、<code>3:2</code>、<code>16:9</code>、<code>9:16</code>。</li>
         <li>图生图不显示比例。尺寸按原图比例决定，页面不提供宽高。</li>
-        <li>参考图只收一张，png、jpeg 或 webp。选中后显示缩略图，可更换或移除。</li>
+        <li>两个入口都显示清晰度，只写标清、高清、超清，默认标清。</li>
+        <li>参考图只收一张，png、jpeg 或 webp。选中后显示缩略图，可更换或移除。图生图可以把结果图拖进参考图。</li>
+        <li>等待时改过的提示词，在生成完成后保留。</li>
         <li>文本为空，或图片服务还没有图时，「生成」不可用。</li>
         <li>切换入口不取消正在进行的运行。新的表单只影响下一次提交。</li>
       </ul>
@@ -242,10 +258,10 @@
       <table>
         <thead><tr><th>区块</th><th>职责</th></tr></thead>
         <tbody>
-          <tr><td>入口</td><td>在文生图和图生图之间切换。图生图多参考图，文生图多比例。</td></tr>
-          <tr><td>表单</td><td>收集当前服务的输入。不填写像素。</td></tr>
+          <tr><td>入口</td><td>在文生图和图生图之间切换。图生图多参考图，文生图多比例。两边都有清晰度。</td></tr>
+          <tr><td>表单</td><td>收集当前服务的输入。清晰度只显示标清、高清、超清。</td></tr>
           <tr><td>等待</td><td>显示阶段、步数和大约剩余时间。</td></tr>
-          <tr><td>结果</td><td>显示图片、提示词和种子。</td></tr>
+          <tr><td>结果</td><td>显示图片。点击后查看大图，可以放大和缩小。图生图时，这张图可以拖到参考图。</td></tr>
         </tbody>
       </table>
     </section>
@@ -272,8 +288,8 @@
     <section>
       <h2>运行</h2>
       <ol>
-        <li>文生图提交 JSON：<code>text</code>、<code>ratio</code>。</li>
-        <li>图生图提交文本和一张图，字段名为 <code>text</code>、<code>image</code>。不提交比例。</li>
+        <li>文生图提交 JSON：<code>text</code>、<code>ratio</code>、<code>scale</code>。</li>
+        <li>图生图提交文本、一张图和清晰度，字段名为 <code>text</code>、<code>image</code>、<code>scale</code>。不提交比例。</li>
         <li>记下返回的 <code>id</code>，订阅 <code>/api/runs/:id/events</code>。</li>
         <li><code>done</code> 时用事件里的 <code>image</code> 显示结果。</li>
         <li>「停止」调用 <code>POST /api/runs/:id/cancel</code>。</li>
@@ -290,7 +306,7 @@
           <tr><td><code>web/index.html</code></td><td>页面骨架</td></tr>
           <tr><td><code>web/src/main.ts</code></td><td>启动，接上两个入口</td></tr>
           <tr><td><code>web/src/api.ts</code></td><td>健康检查、提交、事件、取消</td></tr>
-          <tr><td><code>web/src/form.ts</code></td><td>文本。文生图另有比例，图生图另有参考图</td></tr>
+          <tr><td><code>web/src/form.ts</code></td><td>文本和清晰度。文生图另有比例，图生图另有参考图</td></tr>
           <tr><td><code>web/src/wait.ts</code></td><td>等待</td></tr>
           <tr><td><code>web/src/result.ts</code></td><td>结果</td></tr>
           <tr><td><code>web/src/styles.css</code></td><td>速写本样式</td></tr>

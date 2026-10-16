@@ -42,6 +42,15 @@ describe("fillWorkflow", () => {
       image: "ref.png",
     });
     expect(filled["12"]).toMatchObject({ inputs: { image: "ref.png" } });
+    const withResolution = fillWorkflow(withImage, { ...manifest, image: ["12", "inputs", "image"], resolution: ["6", "inputs", "resolution"] }, {
+      prompt: "雨夜",
+      width: 832,
+      height: 1248,
+      seed: 7,
+      image: "ref.png",
+      resolution: 1536,
+    });
+    expect(withResolution["6"]).toMatchObject({ inputs: { resolution: 1536 } });
     expect(() => fillWorkflow(template, manifest, {
       prompt: "a",
       width: 1,

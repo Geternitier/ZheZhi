@@ -1,4 +1,5 @@
-import type { RunPhase, RunSnapshot } from "@huijing/shared";
+import type { RunPhase, RunSnapshot, ScaleId } from "@huijing/shared";
+import { isScale } from "@huijing/shared";
 import { ApiError, cancelRun, fetchHealth, fetchRun, openEvents, submitImage, submitText } from "./api.js";
 import { createForm } from "./form.js";
 import type { Mode } from "./result.js";
@@ -16,10 +17,16 @@ const form = createForm({
     result.setMode(mode);
     saveSession();
   },
-  onChange: () => form.sync(),
+  onChange: () => {
+    if (form.text() !== baseline) edited = true;
+    form.sync();
+  },
 });
 const wait = createWait(required("#wait"));
 const result = createResult(required("#result"));
+
+let baseline = "";
+let edited = false;
 
 const state: { runId: string | null; running: boolean; stopping: boolean; close: (() => void) | null } = {
   runId: null,
@@ -42,10 +49,12 @@ async function start() {
   if (input.mode === "image" && !input.file) return;
   form.setError("");
   form.setLocked(true);
+  baseline = form.text();
+  edited = false;
   try {
     const created = input.mode === "image"
-      ? await submitImage(input.text, input.file as File)
-      : await submitText(input.text, input.ratio);
+      ? await submitImage(input.text, input.file as File, input.scale)
+      : await submitText(input.text, input.ratio, input.scale);
     state.runId = created.id;
     state.running = true;
     form.setRunning(true);
@@ -84,7 +93,7 @@ function listen(id: string) {
     progress: (event) => showProgress(event),
     done: (event) => {
       wait.clear();
-      form.setText(event.prompt);
+      applyPrompt(event.prompt);
       result.showImage(event.image);
       finish("done");
     },
@@ -117,7 +126,7 @@ function applySnapshot(run: RunSnapshot) {
   state.runId = run.id;
   if (run.phase === "done") {
     wait.clear();
-    form.setText(run.prompt ?? "");
+    applyPrompt(run.prompt ?? "");
     result.showImage(`/api/runs/${run.id}/image`);
     finish("done");
     return;
@@ -147,9 +156,16 @@ function finish(phase: RunPhase) {
   saveSession();
 }
 
+function applyPrompt(prompt: string) {
+  if (edited) return;
+  form.setText(prompt);
+  baseline = form.text();
+}
+
 function restore() {
   const saved = readSession();
   form.setMode(saved.mode);
+  form.setScale(saved.scale);
   result.setMode(saved.mode);
   result.showEmpty();
   if (!saved.runId) return;
@@ -168,7 +184,7 @@ function restore() {
 }
 
 function saveSession() {
-  const payload = JSON.stringify({ mode: form.value().mode, runId: state.runId });
+  const payload = JSON.stringify({ mode: form.value().mode, scale: form.value().scale, runId: state.runId });
   try {
     sessionStorage.setItem(SESSION_KEY, payload);
   } catch {
@@ -176,14 +192,15 @@ function saveSession() {
   }
 }
 
-function readSession(): { mode: Mode; runId: string | null } {
+function readSession(): { mode: Mode; scale: ScaleId; runId: string | null } {
   try {
-    const parsed = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null") as { mode?: unknown; runId?: unknown } | null;
+    const parsed = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null") as { mode?: unknown; scale?: unknown; runId?: unknown } | null;
     const mode = parsed?.mode === "image" ? "image" : "text";
+    const scale = isScale(parsed?.scale) ? parsed.scale : "1k";
     const runId = typeof parsed?.runId === "string" && parsed.runId ? parsed.runId : null;
-    return { mode, runId };
+    return { mode, scale, runId };
   } catch {
-    return { mode: "text", runId: null };
+    return { mode: "text", scale: "1k", runId: null };
   }
 }
 

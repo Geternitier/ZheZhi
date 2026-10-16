@@ -1,4 +1,4 @@
-import type { DoneEvent, ErrorEvent, HealthStatus, ProgressEvent, RatioId, RunSnapshot } from "@huijing/shared";
+import type { DoneEvent, ErrorEvent, HealthStatus, ProgressEvent, RatioId, RunSnapshot, ScaleId } from "@huijing/shared";
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -22,18 +22,19 @@ export async function fetchHealth(): Promise<HealthStatus | null> {
   }
 }
 
-export async function submitText(text: string, ratio: RatioId): Promise<{ id: string; etaMs: number | null }> {
+export async function submitText(text: string, ratio: RatioId, scale: ScaleId): Promise<{ id: string; etaMs: number | null }> {
   return readJson(await fetch("/api/services/text.image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, ratio }),
+    body: JSON.stringify({ text, ratio, scale }),
   }));
 }
 
-export async function submitImage(text: string, image: File): Promise<{ id: string; etaMs: number | null }> {
+export async function submitImage(text: string, image: File, scale: ScaleId): Promise<{ id: string; etaMs: number | null }> {
   const body = new FormData();
   body.set("text", text);
   body.set("image", image);
+  body.set("scale", scale);
   return readJson(await fetch("/api/services/image.image", { method: "POST", body }));
 }
 
