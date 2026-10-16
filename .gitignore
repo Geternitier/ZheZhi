@@ -3,7 +3,4 @@ dist/
 .DS_Store
 *.log
 启动.bat
-data/settings.json
-data/timings.json
-data/outputs/*
-!data/outputs/.gitkeep
+data/
