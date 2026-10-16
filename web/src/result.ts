@@ -10,7 +10,10 @@ const EMPTY: Record<Mode, string> = {
 export function createResult(root: HTMLElement) {
   const empty = required<HTMLParagraphElement>(root, "#empty");
   const picture = required<HTMLImageElement>(root, "#picture");
-  const viewer = createViewer(requiredDialog());
+  let viewing: string | null = null;
+  const viewer = createViewer(requiredDialog(), () => {
+    viewing = null;
+  });
   let mode: Mode = "text";
   let busy = false;
   let dragged = false;
@@ -41,7 +44,7 @@ export function createResult(root: HTMLElement) {
     }
     const src = picture.getAttribute("src");
     if (!src || picture.hidden) return;
-    viewer.open(picture.src);
+    showView(picture.src);
   });
 
   return {
@@ -69,7 +72,33 @@ export function createResult(root: HTMLElement) {
       picture.src = image;
       syncDrag();
     },
+    imageUrl(): string | null {
+      if (picture.hidden) return null;
+      return picture.getAttribute("src");
+    },
+    shows(image: string): boolean {
+      const current = picture.hidden ? null : picture.getAttribute("src");
+      return current != null && sameImage(current, image);
+    },
+    clearPicture() {
+      busy = false;
+      picture.hidden = true;
+      picture.removeAttribute("src");
+      syncEmpty();
+      syncDrag();
+    },
+    openView(image: string) {
+      showView(image);
+    },
+    closeViewIf(image: string) {
+      if (viewing && sameImage(viewing, image)) viewer.close();
+    },
   };
+
+  function showView(image: string) {
+    viewing = image;
+    viewer.open(image);
+  }
 
   function syncEmpty() {
     const show = picture.hidden && !busy;
@@ -84,6 +113,16 @@ export function createResult(root: HTMLElement) {
     if (canDrag) picture.title = "查看大图，或拖到参考图";
     else if (shown) picture.title = "查看大图";
     else picture.removeAttribute("title");
+  }
+}
+
+export function sameImage(left: string, right: string): boolean {
+  try {
+    const a = new URL(left, window.location.href);
+    const b = new URL(right, window.location.href);
+    return a.origin === b.origin && a.pathname === b.pathname;
+  } catch {
+    return false;
   }
 }
 

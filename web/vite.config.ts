@@ -1,3 +1,4 @@
+import http from "node:http";
 import { defineConfig } from "vite";
 
 const api = process.env.HUIJING_API || "http://127.0.0.1:8741";
@@ -10,7 +11,10 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: true,
     proxy: {
-      "/api": api,
+      "/api": {
+        target: api,
+        agent: new http.Agent({ keepAlive: false }),
+      },
     },
   },
 });

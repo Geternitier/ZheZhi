@@ -320,6 +320,65 @@ textarea:focus { outline: none; border-bottom-color: var(--ink); }
 
 #picture[hidden] { display: none; }
 
+.history { margin-top: 10px; }
+
+.history[hidden] { display: none; }
+
+.history-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow: hidden;
+}
+
+#history-more { margin-top: 6px; }
+
+#history-more[hidden] { display: none; }
+
+.hist-item {
+  flex: 0 0 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.thumb {
+  position: relative;
+  height: 96px;
+  border: 1.5px solid var(--faint);
+  background: rgba(255, 252, 246, 0.35);
+}
+
+.thumb-open {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.thumb-open img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-open[draggable="true"] { cursor: grab; }
+
+.thumb-del {
+  border: 0;
+  background: transparent;
+  color: var(--pencil);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 0;
+  cursor: pointer;
+}
+
 #viewer:not([open]) { display: none; }
 
 #viewer[open] {

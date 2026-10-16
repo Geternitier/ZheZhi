@@ -3,6 +3,7 @@ dist/
 .DS_Store
 *.log
 启动.bat
+打包.ps1
 data/
 问题和迭代.md
 docs/

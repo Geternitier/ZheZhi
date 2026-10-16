@@ -1,4 +1,6 @@
-import type { DoneEvent, ErrorEvent, HealthStatus, ProgressEvent, RatioId, RunSnapshot, ScaleId } from "@huijing/shared";
+import type { DoneEvent, ErrorEvent, HealthStatus, HistoryEntry, ProgressEvent, RatioId, RunSnapshot, ScaleId } from "@huijing/shared";
+import { CLIENT_HEADER } from "@huijing/shared";
+import { clientId } from "./client.js";
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -23,11 +25,11 @@ export async function fetchHealth(): Promise<HealthStatus | null> {
 }
 
 export async function submitText(text: string, ratio: RatioId, scale: ScaleId): Promise<{ id: string; etaMs: number | null }> {
-  return readJson(await fetch("/api/services/text.image", {
+  return readJson(await fetch("/api/services/text.image", withClient({
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, ratio, scale }),
-  }));
+  })));
 }
 
 export async function submitImage(text: string, image: File, scale: ScaleId): Promise<{ id: string; etaMs: number | null }> {
@@ -35,7 +37,16 @@ export async function submitImage(text: string, image: File, scale: ScaleId): Pr
   body.set("text", text);
   body.set("image", image);
   body.set("scale", scale);
-  return readJson(await fetch("/api/services/image.image", { method: "POST", body }));
+  return readJson(await fetch("/api/services/image.image", withClient({ method: "POST", body })));
+}
+
+export async function fetchHistory(): Promise<HistoryEntry[]> {
+  const body = await readJson<{ items?: HistoryEntry[] }>(await fetch("/api/history", withClient()));
+  return Array.isArray(body.items) ? body.items : [];
+}
+
+export async function deleteHistory(id: string): Promise<void> {
+  await readJson(await fetch(`/api/history/${id}`, withClient({ method: "DELETE" })));
 }
 
 export async function fetchRun(id: string): Promise<RunSnapshot | null> {
@@ -82,6 +93,12 @@ export function openEvents(
     handlers.disconnect();
   });
   return close;
+}
+
+function withClient(init: RequestInit = {}): RequestInit {
+  const headers = new Headers(init.headers);
+  headers.set(CLIENT_HEADER, clientId());
+  return { ...init, headers };
 }
 
 async function readJson<T>(response: Response): Promise<T> {

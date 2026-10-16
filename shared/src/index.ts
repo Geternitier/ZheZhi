@@ -50,11 +50,27 @@ export type ErrorEvent = {
   message: string;
 };
 
+export const CLIENT_HEADER = "X-Huijing-Client";
+
 export type HealthStatus = {
   ok: boolean;
   comfy: boolean;
   running: boolean;
 };
+
+export type HistoryEntry = {
+  id: string;
+  createdAt: number;
+  prompt: string;
+  service: string;
+  image: string;
+};
+
+const CLIENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isClientId(value: unknown): value is string {
+  return typeof value === "string" && CLIENT_ID.test(value);
+}
 
 export function isRatio(value: unknown): value is RatioId {
   return typeof value === "string" && (RATIOS as readonly string[]).includes(value);
