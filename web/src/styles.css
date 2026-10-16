@@ -1,0 +1,302 @@
+@font-face {
+  font-family: "LXGW WenKai";
+  src: url("/fonts/LXGWWenKai-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --desk: #d7d0c4;
+  --paper: #f4efe4;
+  --ink: #2a2722;
+  --pencil: #5e584f;
+  --faint: #c9c0b2;
+  --wash: #e7e0d2;
+  --hand: "LXGW WenKai", "KaiTi", "STKaiti", "楷体", serif;
+  --kai: "KaiTi", "STKaiti", "楷体", serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font: 21px/1.45 var(--hand);
+  background:
+    radial-gradient(circle at 12% 0%, #e4ddd2, transparent 42%),
+    var(--desk);
+}
+
+main {
+  max-width: 920px;
+  margin: 36px auto 64px;
+  padding: 42px 40px 56px 72px;
+  position: relative;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(90deg, transparent 54px, rgba(196, 91, 82, 0.55) 54px, rgba(196, 91, 82, 0.55) 55px, transparent 55px),
+    repeating-linear-gradient(transparent, transparent 31px, rgba(120, 140, 170, 0.13) 32px);
+  box-shadow: 8px 14px 0 rgba(70, 58, 42, 0.08), 0 18px 40px rgba(60, 44, 28, 0.16);
+}
+
+main::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 28px;
+  background:
+    radial-gradient(circle at 14px 48px, transparent 7px, #cfc6b8 8px, transparent 9px) 0 0 / 28px 56px repeat-y,
+    linear-gradient(#efe8da, #efe8da);
+}
+
+h1 {
+  margin: 0;
+  font-size: 48px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+p { margin: 0; }
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+
+.mode, .go, .text-btn, .ratio {
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mode {
+  appearance: none;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  border-radius: 2px 10px 2px 8px;
+  padding: 8px 12px;
+  font-size: 24px;
+  box-shadow: 2px 2px 0 rgba(42, 39, 34, 0.12);
+}
+
+.mode[aria-checked="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+section.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+#result { flex: 1; }
+
+.panel {
+  border: 1.5px solid var(--ink);
+  border-radius: 3px 14px 4px 12px;
+  padding: 14px 14px 16px;
+  background: rgba(255, 252, 246, 0.45);
+}
+
+label, .field-label {
+  display: block;
+  color: var(--pencil);
+  margin: 12px 0 4px;
+}
+
+.panel label:first-child, .panel .field-label:first-child { margin-top: 0; }
+
+textarea {
+  width: 100%;
+  min-height: 132px;
+  border: 0;
+  border-bottom: 1px dashed var(--pencil);
+  background: transparent;
+  color: inherit;
+  font-family: var(--kai);
+  font-size: 17px;
+  line-height: 1.7;
+  resize: vertical;
+  padding: 8px 2px;
+}
+
+textarea:focus { outline: none; border-bottom-color: var(--ink); }
+
+.drop {
+  min-height: 88px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--pencil);
+  border: 1.5px dashed var(--pencil);
+  border-radius: 2px 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.drop.over { background: var(--wash); }
+
+.drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.drop img {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+}
+
+.text-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+#image-field[hidden] + .text-head { margin-top: 0; }
+
+.text-head label { margin: 0; }
+
+.ratios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.ratio {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--pencil);
+}
+
+.ratio-name { font-family: var(--kai); font-size: 18px; line-height: 1; }
+
+.shape {
+  display: block;
+  height: 26px;
+  border: 1.5px solid currentColor;
+}
+
+.ratio[aria-checked="true"] { color: var(--ink); }
+
+.ratio[aria-checked="true"] .shape { background: var(--ink); }
+
+.go {
+  margin-top: 16px;
+  width: 100%;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  letter-spacing: 0.06em;
+  font-size: 24px;
+  padding: 8px 12px;
+}
+
+.go:hover:not(:disabled), .go.hot {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.go:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.error {
+  margin-top: 8px;
+  color: #8d3a32;
+}
+
+.wait {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.wait[hidden] { display: none; }
+
+.sketch.is-hidden { display: none; }
+
+.sketch {
+  display: block;
+  width: 150px;
+  height: 52px;
+  color: var(--ink);
+  overflow: visible;
+}
+
+.sketch .guide { fill: none; stroke: none; }
+
+.sketch .trail line {
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
+.sketch .pencil rect,
+.sketch .pencil .wood {
+  fill: var(--paper);
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
+
+.sketch .pencil .lead { fill: currentColor; }
+
+#empty { color: var(--pencil); }
+
+#picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1.5px solid var(--ink);
+  background: rgba(255, 252, 246, 0.7);
+}
+
+#picture[hidden] { display: none; }
+
+.text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--pencil);
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  text-decoration: none;
+}
+
+@media (max-width: 760px) {
+  main { margin: 0; padding: 28px 18px 48px 48px; }
+  .cols, .modes { grid-template-columns: 1fr; }
+}

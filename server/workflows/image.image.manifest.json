@@ -1,0 +1,7 @@
+{
+  "prompt": ["10", "inputs", "prompt"],
+  "width": ["13", "inputs", "width"],
+  "height": ["13", "inputs", "height"],
+  "seed": ["7", "inputs", "seed"],
+  "image": ["12", "inputs", "image"]
+}

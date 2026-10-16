@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>绘境 · 前端设计</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --desk: #d7d0c4;
+      --paper: #f4efe4;
+      --ink: #2a2722;
+      --pencil: #5e584f;
+      --faint: #c9c0b2;
+      --margin: #c45b52;
+      --wash: #e7e0d2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font: 17px/1.7 "KaiTi", "STKaiti", "楷体", "Palatino Linotype", serif;
+      background:
+        radial-gradient(circle at 12% 0%, #e4ddd2, transparent 42%),
+        var(--desk);
+    }
+    main {
+      max-width: 920px;
+      margin: 36px auto 64px;
+      padding: 42px 40px 64px 72px;
+      position: relative;
+      background-color: var(--paper);
+      background-image:
+        linear-gradient(90deg, transparent 54px, rgba(196, 91, 82, 0.55) 54px, rgba(196, 91, 82, 0.55) 55px, transparent 55px),
+        repeating-linear-gradient(transparent, transparent 31px, rgba(120, 140, 170, 0.13) 32px);
+      box-shadow: 8px 14px 0 rgba(70, 58, 42, 0.08), 0 18px 40px rgba(60, 44, 28, 0.16);
+    }
+    main::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 28px;
+      background:
+        radial-gradient(circle at 14px 48px, transparent 7px, #cfc6b8 8px, transparent 9px) 0 0 / 28px 56px repeat-y,
+        linear-gradient(#efe8da, #efe8da);
+    }
+    h1 {
+      font-size: 40px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      margin: 0 0 6px;
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 500;
+      margin: 0 0 8px;
+      letter-spacing: 0.06em;
+    }
+    p { margin: 0 0 10px; }
+    .lead { color: var(--pencil); }
+    section { margin-top: 28px; padding-top: 8px; }
+    code {
+      font-family: Consolas, "Sarasa Mono SC", monospace;
+      font-size: 0.86em;
+      background: var(--wash);
+      padding: 0 4px;
+    }
+    ul, ol { margin: 6px 0 0; padding-left: 1.2em; }
+    li + li { margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      text-align: left;
+      padding: 7px 8px 7px 0;
+      border-bottom: 1px solid var(--faint);
+      vertical-align: top;
+    }
+    th { color: var(--pencil); font-weight: 500; }
+
+    .stage { margin-top: 16px; }
+    .top { display: flex; justify-content: space-between; align-items: baseline; }
+    .brand { font-size: 28px; letter-spacing: 0.14em; }
+    .health { color: var(--pencil); font-size: 15px; }
+    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+    .mode {
+      appearance: none;
+      border: 1.5px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      border-radius: 2px 10px 2px 8px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 rgba(42, 39, 34, 0.12);
+    }
+    .mode[aria-checked="true"] {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .cols { display: grid; grid-template-columns: 0.92fr 1.08fr; gap: 18px; }
+    .panel {
+      border: 1.5px solid var(--ink);
+      border-radius: 3px 14px 4px 12px;
+      padding: 14px 14px 16px;
+      background: rgba(255, 252, 246, 0.35);
+    }
+    label { display: block; color: var(--pencil); margin: 12px 0 4px; }
+    .panel label:first-child { margin-top: 0; }
+    .box, .drop {
+      min-height: 92px;
+      padding: 8px 4px;
+      border-bottom: 1px dashed var(--pencil);
+      color: var(--ink);
+    }
+    .drop {
+      min-height: 72px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--pencil);
+      border: 1.5px dashed var(--pencil);
+      border-radius: 2px 10px;
+    }
+    .ratios { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ratios span {
+      border: 1px solid transparent;
+      padding: 0 6px;
+      color: var(--pencil);
+    }
+    .ratios .on {
+      color: var(--ink);
+      border-color: var(--ink);
+      border-radius: 999px;
+    }
+    .go {
+      margin-top: 16px;
+      width: 100%;
+      border: 1.5px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 20px;
+      letter-spacing: 0.2em;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .go:hover { background: var(--ink); color: var(--paper); }
+    .wait { margin: 0 0 8px; }
+    .shot {
+      aspect-ratio: 2 / 3;
+      max-height: 280px;
+      border: 1.5px solid var(--ink);
+      background:
+        linear-gradient(to top right, transparent calc(50% - 0.6px), var(--faint), transparent calc(50% + 0.6px)),
+        linear-gradient(to top left, transparent calc(50% - 0.6px), var(--faint), transparent calc(50% + 0.6px));
+    }
+    .quiet { color: var(--pencil); margin: 8px 0 0; font-size: 15px; }
+    @media (max-width: 760px) {
+      main { margin: 0; padding: 28px 18px 48px 48px; }
+      .cols, .modes { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>绘境</h1>
+    <p class="lead">一屏完成选择、填写和查看。纸色速写本，铅笔勾线。初始两个服务：文生图，图生图。</p>
+
+    <section>
+      <h2>原则</h2>
+      <ul>
+        <li>同一时刻只呈现当前服务需要的字段。</li>
+        <li>两个入口同等、并列。选中项用铅笔涂实。</li>
+        <li>主操作只有一颗按钮。空闲时是「生成」，运行中是「停止」。</li>
+        <li>等待和结果始终在右侧。没有结果时，用一句话说明下一步。</li>
+        <li>错误放在按钮下方，一句话，不用弹窗。</li>
+      </ul>
+      <div class="stage">
+        <div class="top">
+          <span class="brand">绘境</span>
+          <span class="health">Comfy 可用</span>
+        </div>
+        <div class="modes" role="radiogroup" aria-label="生成方式">
+          <button type="button" class="mode" role="radio" aria-checked="true" data-mode="text">文生图</button>
+          <button type="button" class="mode" role="radio" aria-checked="false" data-mode="image">图生图</button>
+        </div>
+        <div class="cols">
+          <form class="panel">
+            <div id="image-field" hidden>
+              <label>参考图</label>
+              <div class="drop">点击或拖入一张图片</div>
+            </div>
+            <label for="prompt">文本</label>
+            <div class="box" id="prompt">夜雨里，她把油纸伞往旁边让出半肩。</div>
+            <div id="ratio-field">
+              <label>比例</label>
+              <div class="ratios">
+                <span class="on">2:3</span><span>1:1</span><span>3:2</span><span>16:9</span><span>9:16</span>
+              </div>
+            </div>
+            <button class="go" type="button">生成</button>
+          </form>
+          <div class="panel">
+            <p class="wait">正在出图 · 第 8 / 20 步 · 大约还需 40 秒</p>
+            <div class="shot" role="img" aria-label="结果占位"></div>
+            <p class="quiet">提示词与种子写在图下，只读，可复制。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>两个服务</h2>
+      <table>
+        <thead><tr><th>入口</th><th>服务</th><th>必填</th><th>空状态</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>文生图</td>
+            <td><code>text.image</code></td>
+            <td>文本、比例</td>
+            <td>写下要画的内容，然后生成。</td>
+          </tr>
+          <tr>
+            <td>图生图</td>
+            <td><code>image.image</code></td>
+            <td>一张参考图、文本</td>
+            <td>放入一张参考图，并写下要怎么画。</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>文生图显示比例，默认 <code>2:3</code>。选项为 <code>1:1</code>、<code>2:3</code>、<code>3:2</code>、<code>16:9</code>、<code>9:16</code>。</li>
+        <li>图生图不显示比例。尺寸按原图比例决定，页面不提供宽高。</li>
+        <li>参考图只收一张，png、jpeg 或 webp。选中后显示缩略图，可更换或移除。</li>
+        <li>文本为空，或图片服务还没有图时，「生成」不可用。</li>
+        <li>切换入口不取消正在进行的运行。新的表单只影响下一次提交。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>区块</h2>
+      <table>
+        <thead><tr><th>区块</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td>入口</td><td>在文生图和图生图之间切换。图生图多参考图，文生图多比例。</td></tr>
+          <tr><td>表单</td><td>收集当前服务的输入。不填写像素。</td></tr>
+          <tr><td>等待</td><td>显示阶段、步数和大约剩余时间。</td></tr>
+          <tr><td>结果</td><td>显示图片、提示词和种子。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>状态</h2>
+      <table>
+        <thead><tr><th>phase</th><th>等待区</th></tr></thead>
+        <tbody>
+          <tr><td><code>queued</code></td><td>排队中</td></tr>
+          <tr><td><code>sampling</code></td><td>正在出图，并显示第几步</td></tr>
+          <tr><td><code>done</code></td><td>完成。图进入结果区</td></tr>
+          <tr><td><code>failed</code></td><td>按钮下显示 <code>message</code>。已填写的内容保留</td></tr>
+          <tr><td><code>cancelled</code></td><td>已停止。已有的图保留</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li><code>etaMs</code> 为空时写「正在估计时间」，否则写「大约还需」。</li>
+        <li>满一分钟用分钟，不足一分钟用秒。</li>
+        <li>Comfy 不可用时禁用「生成」，顶栏写「Comfy 未就绪」。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>运行</h2>
+      <ol>
+        <li>文生图提交 JSON：<code>text</code>、<code>ratio</code>。</li>
+        <li>图生图提交文本和一张图，字段名为 <code>text</code>、<code>image</code>。不提交比例。</li>
+        <li>记下返回的 <code>id</code>，订阅 <code>/api/runs/:id/events</code>。</li>
+        <li><code>done</code> 时用事件里的 <code>image</code> 显示结果。</li>
+        <li>「停止」调用 <code>POST /api/runs/:id/cancel</code>。</li>
+      </ol>
+      <p>运行 id 和当前入口存在 <code>sessionStorage</code>。刷新后先取快照；尚未结束就重新订阅。</p>
+    </section>
+
+    <section>
+      <h2>目录</h2>
+      <p>Vite，TypeScript。开发时把 <code>/api</code> 代理到 <code>127.0.0.1:8741</code>。页面是一张速写纸：米色底、横线、左侧装订孔和红边。内容居中，宽约 920px。字体用楷体。</p>
+      <table>
+        <thead><tr><th>文件</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>web/index.html</code></td><td>页面骨架</td></tr>
+          <tr><td><code>web/src/main.ts</code></td><td>启动，接上两个入口</td></tr>
+          <tr><td><code>web/src/api.ts</code></td><td>健康检查、提交、事件、取消</td></tr>
+          <tr><td><code>web/src/form.ts</code></td><td>文本。文生图另有比例，图生图另有参考图</td></tr>
+          <tr><td><code>web/src/wait.ts</code></td><td>等待</td></tr>
+          <tr><td><code>web/src/result.ts</code></td><td>结果</td></tr>
+          <tr><td><code>web/src/styles.css</code></td><td>速写本样式</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    const imageField = document.querySelector("#image-field");
+    const ratioField = document.querySelector("#ratio-field");
+    for (const button of document.querySelectorAll(".mode")) {
+      button.addEventListener("click", () => {
+        const imageMode = button.dataset.mode === "image";
+        for (const item of document.querySelectorAll(".mode")) {
+          item.setAttribute("aria-checked", String(item === button));
+        }
+        imageField.hidden = !imageMode;
+        ratioField.hidden = imageMode;
+      });
+    }
+  </script>
+</body>
+</html>

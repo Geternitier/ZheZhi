@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>折枝</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <main>
+    <header class="top">
+      <h1>折枝</h1>
+    </header>
+    <div class="modes" id="modes" role="radiogroup" aria-label="生成方式">
+      <button type="button" class="mode" role="radio" data-mode="text" aria-checked="true">文生图</button>
+      <button type="button" class="mode" role="radio" data-mode="image" aria-checked="false">图生图</button>
+    </div>
+    <div class="cols">
+      <form id="form" class="panel">
+        <div id="image-field" hidden>
+          <span class="field-label" id="image-label">参考图</span>
+          <label class="drop" id="drop">
+            <input id="file" type="file" accept="image/png,image/jpeg,image/webp">
+            <span id="drop-label">点击或拖入一张图片</span>
+            <img id="thumb" alt="" hidden>
+          </label>
+          <button type="button" id="clear-image" class="text-btn" hidden>移除</button>
+        </div>
+        <div class="text-head">
+          <label for="text">文本</label>
+          <button type="button" id="copy" class="text-btn" disabled>复制提示词</button>
+        </div>
+        <textarea id="text" rows="5" maxlength="8000" placeholder="写下要画的内容。"></textarea>
+        <div id="ratio-field">
+          <div class="field-label" id="ratio-label">比例</div>
+          <div class="ratios" id="ratios" role="radiogroup" aria-labelledby="ratio-label"></div>
+        </div>
+        <button type="submit" id="generate" class="go" disabled>生成</button>
+        <p id="form-error" class="error" role="alert" hidden></p>
+      </form>
+      <section class="panel" aria-live="polite">
+        <div id="wait" class="wait" hidden>
+          <svg class="sketch" viewBox="0 0 150 52" aria-hidden="true">
+            <path class="guide" d="M12 34 C 38 38, 48 14, 76 22 S 110 40, 138 26"/>
+            <g class="trail"></g>
+            <g class="pencil">
+              <rect x="-15" y="-1.8" width="8.5" height="3.6" rx="0.4"/>
+              <path class="wood" d="M-6.5 -1.8 L-1 0 L-6.5 1.8 Z"/>
+              <path class="lead" d="M-2.2 -0.8 L0.8 0 L-2.2 0.8 Z"/>
+            </g>
+          </svg>
+          <p id="wait-label" hidden></p>
+        </div>
+        <div id="result">
+          <p id="empty"></p>
+          <img id="picture" alt="生成结果" hidden>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
