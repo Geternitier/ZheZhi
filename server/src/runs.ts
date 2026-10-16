@@ -3,6 +3,7 @@ import path from "node:path";
 import type { DoneEvent, ErrorEvent, ProgressEvent, RunPhase, RunSnapshot, ServiceInfo } from "@huijing/shared";
 import { estimateEta } from "./eta.js";
 import { RequestError, isCancelled } from "./errors.js";
+import { imageExtension } from "./history.js";
 import { loadSettings, type Settings } from "./settings.js";
 
 export type RunEvent =
@@ -35,6 +36,7 @@ type Samples = {
 
 type Run = {
   id: string;
+  clientId: string;
   service: string;
   phase: RunPhase;
   etaMs: number | null;
@@ -50,7 +52,19 @@ type Run = {
   phaseStartedAt: number;
 };
 
-export function createRuns(options: { dataDir: string; services: ServiceModule[]; now?: () => number }) {
+export function createRuns(options: {
+  dataDir: string;
+  services: ServiceModule[];
+  now?: () => number;
+  onImage?: (image: {
+    clientId: string;
+    id: string;
+    createdAt: number;
+    prompt: string;
+    service: string;
+    mediaType: string;
+  }) => Promise<void>;
+}) {
   const now = options.now ?? Date.now;
   const services = new Map(options.services.map((service) => [service.info.name, service]));
   const runs = new Map<string, Run>();
@@ -179,6 +193,20 @@ export function createRuns(options: { dataDir: string; services: ServiceModule[]
         return;
       }
       await writeImage(options.dataDir, run);
+      if (run.clientId && run.image) {
+        try {
+          await options.onImage?.({
+            clientId: run.clientId,
+            id: run.id,
+            createdAt: now(),
+            prompt: run.prompt ?? "",
+            service: run.service,
+            mediaType: run.image.mediaType,
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
       if (samplingStarted) remember("samplingMs", now() - samplingStarted);
       finish(run, "done", null);
     } catch (err) {
@@ -223,13 +251,14 @@ export function createRuns(options: { dataDir: string; services: ServiceModule[]
         return run && run.phase !== "cancelled" && run.phase !== "failed" && run.phase !== "done";
       });
     },
-    async submit(name: string, body: unknown): Promise<{ id: string; etaMs: number | null }> {
+    async submit(name: string, body: unknown, clientId: string): Promise<{ id: string; etaMs: number | null }> {
       const service = services.get(name);
       if (!service) throw new RequestError(404, "没有这个生成服务。");
       const input = await service.parse(body);
       await readySamples();
       const run: Run = {
         id: crypto.randomUUID(),
+        clientId,
         service: name,
         phase: "queued",
         etaMs: null,
@@ -317,14 +346,9 @@ async function writeImage(dataDir: string, run: Run): Promise<void> {
   try {
     const dir = path.join(dataDir, "outputs");
     await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, `${run.id}.${extension(run.image.mediaType)}`), run.image.bytes);
+    await fs.writeFile(path.join(dir, `${run.id}.${imageExtension(run.image.mediaType)}`), run.image.bytes);
   } catch (err) {
     console.error(err);
   }
 }
 
-function extension(mediaType: string): string {
-  if (mediaType.includes("jpeg")) return "jpg";
-  if (mediaType.includes("webp")) return "webp";
-  return "png";
-}

@@ -2,7 +2,7 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 1.25;
 
-export function createViewer(dialog: HTMLDialogElement) {
+export function createViewer(dialog: HTMLDialogElement, onClose?: () => void) {
   const stage = required<HTMLElement>(dialog, "#viewer-stage");
   const frame = required<HTMLElement>(dialog, "#viewer-frame");
   const image = required<HTMLImageElement>(dialog, "#viewer-image");
@@ -20,6 +20,7 @@ export function createViewer(dialog: HTMLDialogElement) {
   dialog.addEventListener("close", () => {
     zoom = MIN_ZOOM;
     image.removeAttribute("src");
+    onClose?.();
   });
   stage.addEventListener("wheel", (event) => {
     if (!dialog.open || !image.naturalWidth) return;

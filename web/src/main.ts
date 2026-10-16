@@ -2,8 +2,9 @@ import type { RunPhase, RunSnapshot, ScaleId } from "@huijing/shared";
 import { isScale } from "@huijing/shared";
 import { ApiError, cancelRun, fetchHealth, fetchRun, openEvents, submitImage, submitText } from "./api.js";
 import { createForm } from "./form.js";
+import { createHistory } from "./history.js";
 import type { Mode } from "./result.js";
-import { createResult } from "./result.js";
+import { createResult, sameImage } from "./result.js";
 import { createWait, hasMeasuredProgress } from "./wait.js";
 
 const SESSION_KEY = "huijing.web";
@@ -15,6 +16,7 @@ const form = createForm({
   onStop: () => void stop(),
   onMode: (mode) => {
     result.setMode(mode);
+    history.setMode(mode);
     saveSession();
   },
   onChange: () => {
@@ -24,6 +26,14 @@ const form = createForm({
 });
 const wait = createWait(required("#wait"));
 const result = createResult(required("#result"));
+const history = createHistory({
+  root: required("#history"),
+  onOpen: (image) => result.openView(image),
+  onRemove: (image) => {
+    result.closeViewIf(image);
+    if (result.shows(image)) result.clearPicture();
+  },
+});
 
 let baseline = "";
 let edited = false;
@@ -37,7 +47,10 @@ const state: { runId: string | null; running: boolean; stopping: boolean; close:
 
 restore();
 void refreshHealth();
-window.addEventListener("focus", () => void refreshHealth());
+window.addEventListener("focus", () => {
+  void refreshHealth();
+  void refreshHistory();
+});
 
 async function refreshHealth() {
   const health = await fetchHealth();
@@ -96,6 +109,7 @@ function listen(id: string) {
       applyPrompt(event.prompt);
       result.showImage(event.image);
       finish("done");
+      void history.reload();
     },
     error: (event) => {
       if (state.stopping || event.message === "已取消") {
@@ -167,20 +181,44 @@ function restore() {
   form.setMode(saved.mode);
   form.setScale(saved.scale);
   result.setMode(saved.mode);
+  history.setMode(saved.mode);
   result.showEmpty();
-  if (!saved.runId) return;
-  state.runId = saved.runId;
-  void fetchRun(saved.runId).then((run) => {
-    if (!run) {
-      state.runId = null;
-      saveSession();
+  void settle(saved.runId);
+}
+
+async function settle(runId: string | null) {
+  let run: RunSnapshot | null = null;
+  if (runId) {
+    try {
+      run = await fetchRun(runId);
+    } catch {
+      wait.clear();
+      await history.reload().catch(() => undefined);
       return;
     }
+  }
+  if (run && isActive(run.phase)) {
     applySnapshot(run);
-    if (isActive(run.phase)) listen(run.id);
-  }).catch(() => {
-    wait.clear();
-  });
+    listen(run.id);
+    await history.reload().catch(() => undefined);
+    return;
+  }
+  if (run?.phase === "failed" || run?.phase === "cancelled") applySnapshot(run);
+  state.runId = null;
+  saveSession();
+  const items = await history.reload().catch(() => []);
+  if (state.running || !items[0]) return;
+  result.showImage(items[0].image);
+}
+
+async function refreshHistory() {
+  const items = await history.reload().catch(() => null);
+  if (!items) return;
+  const current = result.imageUrl();
+  if (!current) return;
+  if (items.some((item) => sameImage(item.image, current))) return;
+  result.closeViewIf(current);
+  result.clearPicture();
 }
 
 function saveSession() {

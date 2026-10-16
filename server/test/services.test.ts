@@ -4,12 +4,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import type { RunSnapshot } from "@huijing/shared";
+import { CLIENT_HEADER, type RunSnapshot } from "@huijing/shared";
 import { createApp } from "../src/app.js";
+import { HISTORY_TTL_MS } from "../src/history.js";
 import type { OpenSocket } from "../src/comfy.js";
 import { complete } from "../src/ollama.js";
 
 const workflowsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../workflows");
+const CLIENT_A = "11111111-1111-4111-8111-111111111111";
+const CLIENT_B = "22222222-2222-4222-8222-222222222222";
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   "base64",
@@ -47,7 +50,7 @@ describe("generation services", () => {
     const form = new FormData();
     form.set("text", "保持脸，换成夜雨");
     form.set("image", new File([new Uint8Array(png(100, 200))], "src.png", { type: "image/png" }));
-    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form });
+    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form, headers: clientHeaders() });
     const created = await response.json() as { id: string };
     await waitFor(started.app, created.id, (run) => run.phase === "done");
     const workflow = started.workflows[0];
@@ -72,7 +75,7 @@ describe("generation services", () => {
     form.set("text", "保持脸，换成夜雨");
     form.set("scale", "1.5k");
     form.set("image", new File([new Uint8Array(png(100, 200))], "src.png", { type: "image/png" }));
-    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form });
+    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form, headers: clientHeaders() });
     const imageRun = await response.json() as { id: string };
     await waitFor(started.app, imageRun.id, (run) => run.phase === "done");
     expect(started.workflows[1]["10"]).toMatchObject({ inputs: { resolution: 1536 } });
@@ -83,7 +86,7 @@ describe("generation services", () => {
     const started = await boot();
     const response = await started.app.request("/api/services/text.image", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: clientHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({ text: "夜雨", ratio: "1:1", scale: "4k" }),
     });
     expect(response.status).toBe(400);
@@ -94,7 +97,7 @@ describe("generation services", () => {
     const started = await boot();
     const form = new FormData();
     form.set("text", "夜雨");
-    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form });
+    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form, headers: clientHeaders() });
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: "请上传一张参考图。" });
     expect(started.calls).toEqual([]);
@@ -145,6 +148,117 @@ describe("generation services", () => {
   });
 });
 
+describe("history", () => {
+  it("keeps one browser's image away from another", async () => {
+    const started = await boot();
+    const created = await postJson(started.app, "/api/services/text.image", {
+      text: "夜雨里的石桥",
+      ratio: "1:1",
+    }, CLIENT_A);
+    await waitFor(started.app, created.id, (run) => run.phase === "done");
+
+    const own = await historyItems(started.app, CLIENT_A);
+    const other = await historyItems(started.app, CLIENT_B);
+    expect(own.map((item) => item.id)).toEqual([created.id]);
+    expect(own[0]).toMatchObject({ prompt: "夜雨里的石桥", service: "text.image", image: `/api/runs/${created.id}/image` });
+    expect(other).toEqual([]);
+
+    const removed = await started.app.request(`/api/history/${created.id}`, {
+      method: "DELETE",
+      headers: clientHeaders(undefined, CLIENT_B),
+    });
+    expect(removed.status).toBe(404);
+    expect((await historyItems(started.app, CLIENT_A)).map((item) => item.id)).toEqual([created.id]);
+    await fs.access(path.join(dataDir, "outputs", `${created.id}.png`));
+  });
+
+  it("drops the oldest file after the twelfth image", async () => {
+    let clock = 1_000_000;
+    const started = await boot({ now: () => clock });
+    const ids: string[] = [];
+    for (let index = 0; index < 13; index += 1) {
+      clock += 1000;
+      const created = await postJson(started.app, "/api/services/text.image", {
+        text: `第${index}张`,
+        ratio: "1:1",
+      });
+      await waitFor(started.app, created.id, (run) => run.phase === "done");
+      ids.push(created.id);
+    }
+    const items = await historyItems(started.app, CLIENT_A);
+    expect(items.map((item) => item.id)).toEqual([...ids].reverse().slice(0, 12));
+    await expect(fs.access(path.join(dataDir, "outputs", `${ids[0]}.png`))).rejects.toThrow();
+    await fs.access(path.join(dataDir, "outputs", `${ids[12]}.png`));
+  });
+
+  it("removes an image once it is seven days old, even for a browser that stays away", async () => {
+    dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "huijing-"));
+    const client = "44444444-4444-4444-8444-444444444444";
+    const id = "55555555-5555-4555-8555-555555555555";
+    await fs.mkdir(path.join(dataDir, "history"), { recursive: true });
+    await fs.mkdir(path.join(dataDir, "outputs"), { recursive: true });
+    await fs.writeFile(path.join(dataDir, "history", `${client}.json`), JSON.stringify([{
+      id,
+      createdAt: 0,
+      prompt: "旧图",
+      service: "text.image",
+      mediaType: "image/png",
+    }]));
+    const image = path.join(dataDir, "outputs", `${id}.png`);
+    await fs.writeFile(image, PNG);
+    await boot({ reuseData: true, now: () => HISTORY_TTL_MS });
+    await waitUntilGone(image);
+    expect(JSON.parse(await fs.readFile(path.join(dataDir, "history", `${client}.json`), "utf8"))).toEqual([]);
+  });
+
+  it("rejects a submit without a client id", async () => {
+    const started = await boot();
+    const missing = await started.app.request("/api/services/text.image", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "夜雨", ratio: "1:1" }),
+    });
+    expect(missing.status).toBe(400);
+    expect(await missing.json()).toMatchObject({ error: "缺少客户端标识。" });
+    const invalid = await started.app.request("/api/services/text.image", {
+      method: "POST",
+      headers: clientHeaders({ "content-type": "application/json" }, "not-a-uuid"),
+      body: JSON.stringify({ text: "夜雨", ratio: "1:1" }),
+    });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: "缺少客户端标识。" });
+  });
+
+  it("serves an unexpired image from disk after the run leaves memory", async () => {
+    const started = await boot();
+    const created = await postJson(started.app, "/api/services/text.image", {
+      text: "夜雨里的石桥",
+      ratio: "1:1",
+    });
+    await waitFor(started.app, created.id, (run) => run.phase === "done");
+    const restarted = createApp({ dataDir, workflowsDir });
+    expect((await restarted.request(`/api/runs/${created.id}`)).status).toBe(404);
+    const image = await restarted.request(`/api/runs/${created.id}/image`);
+    expect(image.status).toBe(200);
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(PNG);
+  });
+
+  it("leaves failed and cancelled runs out of history", async () => {
+    const started = await boot();
+    const release = started.holdComfy();
+    const created = await postJson(started.app, "/api/services/text.image", {
+      text: "夜雨里的石桥",
+      ratio: "1:1",
+    });
+    await waitFor(started.app, created.id, (run) => run.phase === "sampling");
+    const cancelled = await started.app.request(`/api/runs/${created.id}/cancel`, { method: "POST" });
+    expect((await cancelled.json()).phase).toBe("cancelled");
+    release();
+    await waitFor(started.app, created.id, (run) => run.phase === "cancelled");
+    expect(await historyItems(started.app, CLIENT_A)).toEqual([]);
+  });
+});
+
 describe("ollama interface", () => {
   it("returns the completed text", async () => {
     const server = http.createServer(async (req, res) => {
@@ -176,9 +290,11 @@ describe("ollama interface", () => {
   });
 });
 
-async function boot() {
+async function boot(options: { now?: () => number; reuseData?: boolean } = {}) {
   const backend = await startComfy();
-  dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "huijing-"));
+  if (!options.reuseData || !dataDir) {
+    dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "huijing-"));
+  }
   await fs.writeFile(path.join(dataDir, "settings.json"), JSON.stringify({
     ollamaBase: "http://127.0.0.1:9",
     comfyBase: backend.base,
@@ -186,7 +302,7 @@ async function boot() {
   }));
   closeFakes = backend.close;
   return {
-    app: createApp({ dataDir, workflowsDir, openSocket: backend.openSocket }),
+    app: createApp({ dataDir, workflowsDir, openSocket: backend.openSocket, now: options.now }),
     calls: backend.calls,
     workflows: backend.workflows,
     interrupts: backend.interrupts,
@@ -276,10 +392,36 @@ function png(width: number, height: number): Uint8Array {
   return bytes;
 }
 
-async function postJson(app: ReturnType<typeof createApp>, url: string, payload: unknown) {
+function clientHeaders(headers?: HeadersInit, client = CLIENT_A): Headers {
+  const next = new Headers(headers);
+  next.set(CLIENT_HEADER, client);
+  return next;
+}
+
+async function historyItems(app: ReturnType<typeof createApp>, client: string) {
+  const response = await app.request("/api/history", { headers: clientHeaders(undefined, client) });
+  expect(response.status).toBe(200);
+  const body = await response.json() as { items: Array<{ id: string; prompt: string; service: string; image: string }> };
+  return body.items;
+}
+
+async function waitUntilGone(file: string) {
+  const started = Date.now();
+  while (Date.now() - started < 2_000) {
+    try {
+      await fs.access(file);
+    } catch {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`file stayed: ${file}`);
+}
+
+async function postJson(app: ReturnType<typeof createApp>, url: string, payload: unknown, client = CLIENT_A) {
   const response = await app.request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: clientHeaders({ "content-type": "application/json" }, client),
     body: JSON.stringify(payload),
   });
   const body = await response.json() as { id?: string; error?: string };

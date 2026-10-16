@@ -10,6 +10,7 @@ Node.js 22 或更新，TypeScript，Hono，Vitest。与 `web`、`shared` 同属�
 server/src/index.ts       进程入口
 server/src/app.ts         路由
 server/src/runs.ts        运行、队列、取消
+server/src/history.ts     历史记录与过期清理
 server/src/eta.ts         大约剩余时间
 server/src/comfy.ts       ComfyUI
 server/src/ollama.ts      Ollama
@@ -17,7 +18,7 @@ server/src/size.ts         按比例计算宽高
 server/src/workflow.ts    填工作流
 server/src/services/      生成服务
 server/workflows/         工作流与映射
-data/                     设置、耗时、结果图
+data/                     设置、耗时、结果图、历史
 ```
 
 `comfy`、`workflow`、`eta` 只给服务内部用，不对外暴露。
@@ -72,7 +73,13 @@ Comfy 是否可达，当前有没有运行。
 服务名和输入字段。
 
 `POST /api/services/:name`  
-提交生成，返回 `{ id, etaMs }`。`text.image` 使用 JSON。`image.image` 使用 `multipart/form-data`，文件字段名为 `image`。
+提交生成，返回 `{ id, etaMs }`。请求头 `X-Huijing-Client` 必须是 UUID，否则拒绝并说明缺少客户端标识。`text.image` 使用 JSON。`image.image` 使用 `multipart/form-data`，文件字段名为 `image`。
+
+`GET /api/history`  
+需要同一个客户端请求头。返回该客户端的历史，新的在前。先清理过期记录。每项含 `id`、`createdAt`、`prompt`、`service`、`image`。
+
+`DELETE /api/history/:id`  
+删除这个客户端名下的一张图和它的文件。不是自己的图时，按没有这张图处理。
 
 `GET /api/runs/:id`  
 快照：`id`、`service`、`phase`、`etaMs`、`step`、`total`、`prompt`、`seed`、`error`。
@@ -87,7 +94,9 @@ SSE，事件为 `progress`、`done`、`error`。
 - `error`：`message`，一句中文
 
 `GET /api/runs/:id/image`  
-结果图。
+结果图。内存里有就直接返回。重启后，未过期的历史图从 `data/outputs/` 读取。
+
+每个浏览器最多 12 张。生成时刻起满 7 天的记录和文件会被删除。清理发生在进程启动、读取历史、以及新图写入之后，并扫过全部浏览器。失败和取消不写入历史。
 
 `POST /api/runs/:id/cancel`  
 取消排队，或打断正在出的图。
@@ -106,4 +115,4 @@ ComfyUI 默认 `http://127.0.0.1:8188`。Ollama 默认 `http://127.0.0.1:11434`�
 
 ## 测试
 
-用假的 Comfy 覆盖：地址校验、两份工作流的填充、三档清晰度和五种比例、按原图比例取整、进度事件、取消、参考图缺失、未知清晰度。
+用假的 Comfy 覆盖：地址校验、两份工作流的填充、三档清晰度和五种比例、按原图比例取整、进度事件、取消、参考图缺失、未知清晰度、历史隔离、12 张上限、7 天过期、非法客户端标识、重启后读图。
