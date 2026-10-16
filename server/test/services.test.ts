@@ -33,7 +33,7 @@ describe("generation services", () => {
     });
     const snapshot = await waitFor(started.app, created.id, (run) => run.phase === "done");
     const workflow = started.workflows[0];
-    expect(workflow["10"]).toMatchObject({ inputs: { prompt: "夜雨里的石桥", resolution: 1536 } });
+    expect(workflow["10"]).toMatchObject({ inputs: { prompt: "夜雨里的石桥", resolution: 1024 } });
     expect(workflow["11"]).toMatchObject({ inputs: { width: 832, height: 1248 } });
     expect(workflow["7"]).toMatchObject({ inputs: { seed: snapshot.seed } });
     expect(workflow["1"]).toMatchObject({ inputs: { unet_name: "qwen-image-2.1-UC-fp8.safetensors" } });
@@ -52,9 +52,42 @@ describe("generation services", () => {
     await waitFor(started.app, created.id, (run) => run.phase === "done");
     const workflow = started.workflows[0];
     expect(started.calls).toEqual(["upload", "comfy"]);
-    expect(workflow["10"]).toMatchObject({ inputs: { prompt: "保持脸，换成夜雨", resolution: 2048 } });
+    expect(workflow["10"]).toMatchObject({ inputs: { prompt: "保持脸，换成夜雨", resolution: 1024 } });
     expect(workflow["13"]).toMatchObject({ inputs: { width: 736, height: 1440 } });
     expect(workflow["12"]).toMatchObject({ inputs: { image: "ref.png" } });
+  });
+
+  it("uses the requested clarity for width, height, and resolution", async () => {
+    const started = await boot();
+    const created = await postJson(started.app, "/api/services/text.image", {
+      text: "夜雨里的石桥",
+      ratio: "16:9",
+      scale: "2k",
+    });
+    await waitFor(started.app, created.id, (run) => run.phase === "done");
+    expect(started.workflows[0]["10"]).toMatchObject({ inputs: { resolution: 2048 } });
+    expect(started.workflows[0]["11"]).toMatchObject({ inputs: { width: 2720, height: 1536 } });
+
+    const form = new FormData();
+    form.set("text", "保持脸，换成夜雨");
+    form.set("scale", "1.5k");
+    form.set("image", new File([new Uint8Array(png(100, 200))], "src.png", { type: "image/png" }));
+    const response = await started.app.request("/api/services/image.image", { method: "POST", body: form });
+    const imageRun = await response.json() as { id: string };
+    await waitFor(started.app, imageRun.id, (run) => run.phase === "done");
+    expect(started.workflows[1]["10"]).toMatchObject({ inputs: { resolution: 1536 } });
+    expect(started.workflows[1]["13"]).toMatchObject({ inputs: { width: 1088, height: 2176 } });
+  });
+
+  it("rejects an unknown clarity", async () => {
+    const started = await boot();
+    const response = await started.app.request("/api/services/text.image", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "夜雨", ratio: "1:1", scale: "4k" }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "清晰度不在规定的选项里。" });
   });
 
   it("rejects a missing reference image", async () => {

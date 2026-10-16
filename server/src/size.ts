@@ -1,8 +1,7 @@
-import type { RatioId } from "@huijing/shared";
+import { isScale, SCALE_EDGE, type RatioId, type ScaleId } from "@huijing/shared";
 import { RequestError } from "./errors.js";
 
-const TARGET_EDGE = 1024;
-const TARGET_AREA = TARGET_EDGE * TARGET_EDGE;
+const DEFAULT_EDGE = SCALE_EDGE["1k"];
 
 const RATIO_PARTS: Record<RatioId, { width: number; height: number }> = {
   "1:1": { width: 1, height: 1 },
@@ -12,19 +11,27 @@ const RATIO_PARTS: Record<RatioId, { width: number; height: number }> = {
   "9:16": { width: 9, height: 16 },
 };
 
-export function sizeForRatio(ratio: RatioId): { width: number; height: number } {
-  const parts = RATIO_PARTS[ratio];
-  return sizeForPixels(parts.width, parts.height);
+export function scaleOf(value: unknown): ScaleId {
+  if (value === undefined || value === null) return "1k";
+  if (!isScale(value)) throw new RequestError(400, "清晰度不在规定的选项里。");
+  return value;
 }
 
-export function sizeForPixels(width: number, height: number): { width: number; height: number } {
+export function sizeForRatio(ratio: RatioId, edge = DEFAULT_EDGE): { width: number; height: number } {
+  const parts = RATIO_PARTS[ratio];
+  return sizeForPixels(parts.width, parts.height, edge);
+}
+
+export function sizeForPixels(width: number, height: number, edge = DEFAULT_EDGE): { width: number; height: number } {
   if (!(width > 0) || !(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
     throw new RequestError(400, "参考图无法读取。");
   }
+  if (!(edge > 0) || !Number.isFinite(edge)) throw new RequestError(400, "清晰度不在规定的选项里。");
+  const area = edge * edge;
   const ratio = width / height;
   return {
-    width: roundTo32(Math.sqrt(TARGET_AREA * ratio)),
-    height: roundTo32(Math.sqrt(TARGET_AREA / ratio)),
+    width: roundTo32(Math.sqrt(area * ratio)),
+    height: roundTo32(Math.sqrt(area / ratio)),
   };
 }
 

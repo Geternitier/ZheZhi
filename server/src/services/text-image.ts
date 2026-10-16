@@ -1,10 +1,10 @@
-import { RATIOS, isRatio, type RatioId } from "@huijing/shared";
+import { RATIOS, SCALE_EDGE, SCALES, isRatio, type RatioId, type ScaleId } from "@huijing/shared";
 import type { OpenSocket } from "../comfy.js";
 import { generateImage } from "../comfy.js";
 import { RequestError } from "../errors.js";
 import type { ServiceModule } from "../runs.js";
 import { randomSeed } from "../seed.js";
-import { sizeForRatio } from "../size.js";
+import { scaleOf, sizeForRatio } from "../size.js";
 import { privateOrigin } from "../upstream.js";
 import { fillWorkflow, loadWorkflow } from "../workflow.js";
 
@@ -22,18 +22,25 @@ export function createTextImageService(deps: {
       input: [
         { name: "text", type: "text" },
         { name: "ratio", type: "enum", values: RATIOS },
+        { name: "scale", type: "enum", values: SCALES },
       ],
     },
     parse(body) {
       return parseTextImage(body);
     },
     async run(input, ctx) {
-      const job = input as { text: string; ratio: RatioId };
+      const job = input as { text: string; ratio: RatioId; scale: ScaleId };
       privateOrigin(ctx.settings.comfyBase);
       const loaded = await loadWorkflow(deps.workflowsDir, "text.image");
-      const size = sizeForRatio(job.ratio);
+      const edge = SCALE_EDGE[job.scale];
+      const size = sizeForRatio(job.ratio, edge);
       const seed = randomSeed();
-      const workflow = fillWorkflow(loaded.api, loaded.manifest, { prompt: job.text, ...size, seed });
+      const workflow = fillWorkflow(loaded.api, loaded.manifest, {
+        prompt: job.text,
+        ...size,
+        seed,
+        resolution: edge,
+      });
       ctx.report({ phase: "sampling", prompt: job.text, seed, step: 0, total: null });
       const image = await generateImage({
         base: ctx.settings.comfyBase,
@@ -48,7 +55,7 @@ export function createTextImageService(deps: {
   };
 }
 
-function parseTextImage(body: unknown): { text: string; ratio: RatioId } {
+function parseTextImage(body: unknown): { text: string; ratio: RatioId; scale: ScaleId } {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new RequestError(400, "请求不是 JSON。");
   }
@@ -57,5 +64,5 @@ function parseTextImage(body: unknown): { text: string; ratio: RatioId } {
   if (!text) throw new RequestError(400, "请填写要画的内容。");
   if (text.length > MAX_TEXT) throw new RequestError(400, "要画的内容太长。");
   if (!isRatio(record.ratio)) throw new RequestError(400, "比例不在规定的选项里。");
-  return { text, ratio: record.ratio };
+  return { text, ratio: record.ratio, scale: scaleOf(record.scale) };
 }

@@ -1,9 +1,10 @@
+import { SCALE_EDGE, SCALES, type ScaleId } from "@huijing/shared";
 import type { OpenSocket } from "../comfy.js";
 import { generateImage, uploadImage } from "../comfy.js";
 import { RequestError } from "../errors.js";
 import type { ServiceModule } from "../runs.js";
 import { randomSeed } from "../seed.js";
-import { imageMediaType, readImageSize, sizeForPixels } from "../size.js";
+import { imageMediaType, readImageSize, scaleOf, sizeForPixels } from "../size.js";
 import { privateOrigin } from "../upstream.js";
 import { fillWorkflow, loadWorkflow } from "../workflow.js";
 
@@ -12,6 +13,7 @@ const MAX_IMAGE = 12 * 1024 * 1024;
 
 type ImageJob = {
   text: string;
+  scale: ScaleId;
   bytes: Uint8Array;
   mediaType: "image/png" | "image/jpeg" | "image/webp";
   width: number;
@@ -30,6 +32,7 @@ export function createImageImageService(deps: {
       input: [
         { name: "text", type: "text" },
         { name: "image", type: "image" },
+        { name: "scale", type: "enum", values: SCALES },
       ],
     },
     parse(body) {
@@ -39,9 +42,16 @@ export function createImageImageService(deps: {
       const job = input as ImageJob;
       privateOrigin(ctx.settings.comfyBase);
       const loaded = await loadWorkflow(deps.workflowsDir, "image.image");
-      const size = sizeForPixels(job.width, job.height);
+      const edge = SCALE_EDGE[job.scale];
+      const size = sizeForPixels(job.width, job.height, edge);
       const seed = randomSeed();
-      fillWorkflow(loaded.api, loaded.manifest, { prompt: job.text, ...size, seed, image: "preflight.png" });
+      fillWorkflow(loaded.api, loaded.manifest, {
+        prompt: job.text,
+        ...size,
+        seed,
+        image: "preflight.png",
+        resolution: edge,
+      });
       ctx.report({ phase: "sampling", prompt: job.text, seed, step: 0, total: null });
       const filename = await uploadImage({
         base: ctx.settings.comfyBase,
@@ -56,6 +66,7 @@ export function createImageImageService(deps: {
         ...size,
         seed,
         image: filename,
+        resolution: edge,
       });
       const image = await generateImage({
         base: ctx.settings.comfyBase,
@@ -76,13 +87,14 @@ async function parseImageImage(body: unknown): Promise<ImageJob> {
   const text = typeof record.text === "string" ? record.text.trim() : "";
   if (!text) throw new RequestError(400, "请填写要画的内容。");
   if (text.length > MAX_TEXT) throw new RequestError(400, "要画的内容太长。");
+  const scale = scaleOf(record.scale);
   const file = record.image;
   if (!isUpload(file) || file.size === 0) throw new RequestError(400, "请上传一张参考图。");
   if (file.size > MAX_IMAGE) throw new RequestError(400, "参考图太大。");
   const bytes = new Uint8Array(await file.arrayBuffer());
   const mediaType = imageMediaType(file.type, bytes);
   const pixels = readImageSize(bytes, mediaType);
-  return { text, bytes, mediaType, width: pixels.width, height: pixels.height };
+  return { text, scale, bytes, mediaType, width: pixels.width, height: pixels.height };
 }
 
 function isUpload(value: unknown): value is File {
